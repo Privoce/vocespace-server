@@ -13,6 +13,16 @@ pub struct ApiError {
     pub msg: String,
 }
 
+impl ApiError {
+    pub fn new<C>(code: C, msg: String) -> Self 
+    where C: Into<u16> {
+        Self {
+            code: code.into(),
+            msg,
+        }
+    }
+}
+
 impl Error for ApiError {}
 
 impl Display for ApiError {
@@ -48,13 +58,21 @@ impl From<(ErrCode, String)> for ApiError {
 }
 
 pub enum ErrCode {
+    InvalidRequest,
+    DatabaseError,
     CreateToken,
+    LicenseNotFound,
+    LicenseExpired
 }
 
 impl From<ErrCode> for u16 {
     fn from(value: ErrCode) -> Self {
         match value {
-            ErrCode::CreateToken => 1001,
+            ErrCode::InvalidRequest => 1000,
+            ErrCode::DatabaseError => 1001,
+            ErrCode::CreateToken => 1002,
+            ErrCode::LicenseNotFound => 1010,
+            ErrCode::LicenseExpired => 1011,
         }
     }
 }

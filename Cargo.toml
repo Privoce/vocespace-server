@@ -4,11 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-livekit-api = "0.4.2"
-salvo = "0.76.2"
+base64 = "0.22.1"
+chrono = "0.4.41"
+lettre = "0.11.16"
+rand = "0.9.1"
+# reqwest = {version="0.12.15", features = ["json", "stream"] }
+salvo = { version = "0.76.2", features = ["cors"] }
+sea-orm = { version = "1.1.11", features = [
+    "sqlx-sqlite",
+    "runtime-async-std",
+] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+sha2 = "0.10.9"
 tokio = { version = "1.44.1", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+uuid = { version = "1.16.0", features = ["v4"] }
 # warp = "0.3.7"
