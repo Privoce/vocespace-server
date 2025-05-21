@@ -1,3 +1,5 @@
+use std::env::current_exe;
+
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 
 use crate::entry;
@@ -11,8 +13,10 @@ pub async fn init() -> DatabaseConnection {
 }
 
 pub async fn connect() -> DatabaseConnection {
+    let exe_path = current_exe().expect("Failed to get current executable path");
+    let path = exe_path.parent().expect("Failed to get parent directory");
     let db = Database::connect(
-        "sqlite:///Users/shengyifei/projects/livekit/live_end/vocespace.db?mode=rwc",
+        format!("sqlite://{}/vocespace.db?mode=rwc", path.display()),
     )
     .await
     .expect("Failed to connect to database");
@@ -25,3 +29,4 @@ pub async fn check_table_or(db: &DatabaseConnection) -> () {
         .await
         .expect("Failed to create table");
 }
+

@@ -71,7 +71,7 @@ pub async fn create_license(req: &mut Request, res: &mut Response) -> ApiResult<
 
     if insert_success {
         // 通过smtp服务发送邮件给用户，告知用户license已创建并附上license
-        let send_success = send_email("", "", &license_email, "", &fmt_content_buy(&license_value));
+        let send_success = send_email("han@privoce.com", "", &license_email, "VoceSpace License", &fmt_content_buy(&license_value));
         if !send_success {
             // record to log
             if let Ok(exe_path) = std::env::current_exe() {

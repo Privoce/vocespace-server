@@ -76,7 +76,7 @@ impl Model {
         Statement::from_string(DbBackend::Sqlite, sql.to_string())
     }
 
-    fn generate_license_value(email: &str, domains: &str, timestamp: i64) -> String {
+    pub fn generate_license_value(email: &str, domains: &str, timestamp: i64) -> String {
         // 创建一个包含用户信息和随机数据的混合字节数组
         let mut rng = rng();
         let mut random_bytes = [0u8; 32];
