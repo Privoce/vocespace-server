@@ -64,13 +64,11 @@ const SMTP_CONTENT_PUY: &str = r##"
           >
             <tr>
               <td align="center" style="padding: 30px 30px 0 30px">
-                <img
-                  src="https://privoce.github.io/vocespace_doc/vocespace.svg"
-                  alt="VoceSpace"
-                  width="220"
-                  height="90"
-                  style="display: block"
-                />
+                <h1
+                  style="color: #22ccee; font-weight: 900; letter-spacing: 4px"
+                >
+                  VoceSpace
+                </h1>
               </td>
             </tr>
 
@@ -83,6 +81,7 @@ const SMTP_CONTENT_PUY: &str = r##"
                   color: #6f7786;
                   font-size: 16px;
                   font-weight: bold;
+                  line-height: 1.5em;
                   text-align: justify;
                 "
               >
