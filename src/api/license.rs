@@ -27,7 +27,7 @@ pub async fn create_license(req: &mut Request, res: &mut Response) -> ApiResult<
         .map_err(|_| ApiError::new(ErrCode::InvalidRequest, "Invalid request".to_string()))?;
 
     // create a license model
-    let license = entry::Model::new(
+    let license = entry::license::Model::new(
         license_req.email,
         license_req.domains,
         license_req.created_at,
@@ -108,8 +108,8 @@ pub async fn get_license_by_domain(req: &mut Request, res: &mut Response) -> Api
 
     let db = db::connect().await;
     // 查询数据库
-    match entry::Entity::find()
-        .filter(entry::Column::Domains.eq(license_value))
+    match entry::license::Entity::find()
+        .filter(entry::license::Column::Domains.eq(license_value))
         .one(&db)
         .await
     {
@@ -155,8 +155,8 @@ pub async fn get_license(req: &mut Request, res: &mut Response) -> ApiResult<()>
 
     let db = db::connect().await;
     // 查询数据库
-    match entry::Entity::find()
-        .filter(entry::Column::Value.eq(license_value))
+    match entry::license::Entity::find()
+        .filter(entry::license::Column::Value.eq(license_value))
         .one(&db)
         .await
     {
@@ -197,7 +197,7 @@ pub async fn get_license(req: &mut Request, res: &mut Response) -> ApiResult<()>
 pub async fn clear_license(_req: &mut Request, res: &mut Response) -> ApiResult<()> {
     let db = db::connect().await;
     // delete all licenses
-    match entry::Entity::delete_many().exec(&db).await {
+    match entry::license::Entity::delete_many().exec(&db).await {
         Ok(_) => {
             res.render(Json(serde_json::json!({
                 "success": true,
@@ -235,9 +235,9 @@ pub async fn update_license(req: &mut Request, res: &mut Response) -> ApiResult<
 
     // check if the license exists
     let db = db::connect().await;
-    match entry::Entity::find()
-        .filter(entry::Column::Value.eq(license_change_req.value))
-        .filter(entry::Column::Email.eq(license_change_req.email))
+    match entry::license::Entity::find()
+        .filter(entry::license::Column::Value.eq(license_change_req.value))
+        .filter(entry::license::Column::Email.eq(license_change_req.email))
         .one(&db)
         .await
     {

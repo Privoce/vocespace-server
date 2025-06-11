@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aws-config = "1.6.3"
+aws-sdk-s3 = "1.91.0"
 base64 = "0.22.1"
 chrono = "0.4.41"
 lettre = "0.11.16"
 rand = "0.9.1"
 # reqwest = {version="0.12.15", features = ["json", "stream"] }
-salvo = { version = "0.76.2", features = ["cors"] }
+salvo = { version = "0.76.2", features = ["cors", "affix-state"] }
 sea-orm = { version = "1.1.11", features = [
     "sqlx-sqlite",
     "runtime-async-std",

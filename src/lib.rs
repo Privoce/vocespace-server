@@ -3,3 +3,4 @@ pub mod router;
 pub mod error;
 pub mod entry;
 pub mod db;
+pub mod s3;
