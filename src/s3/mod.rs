@@ -2,7 +2,10 @@ use aws_config::{Region, SdkConfig};
 use aws_sdk_s3::{
     config::{Credentials, SharedCredentialsProvider},
     presigning::PresigningConfig,
-    types::Object,
+    types::{
+        BucketLifecycleConfiguration, LifecycleExpiration, LifecycleRule, LifecycleRuleFilter,
+        Object, Tag,
+    },
     Client,
 };
 use std::{env::current_exe, error::Error, fs::read_to_string, time::Duration};
@@ -160,6 +163,38 @@ impl S3Manager {
             }
         }
     }
+
+    /// ## 删除的生命周期规则
+    /// 设置对象的删除策略，每个对象只存储3天，超过3天自动删除
+    /// 需要筛选tag为`vocespace_record=true`的对象
+    pub async fn set_delete_policy(&self) -> Result<(), aws_sdk_s3::Error> {
+        let tag = Tag::builder().key("vocespace_record").value("true").build()?;
+
+        let rule = LifecycleRule::builder()
+            .id("auto-delete_3_days")
+            .status(aws_sdk_s3::types::ExpirationStatus::Enabled)
+            .filter(
+                LifecycleRuleFilter::builder()
+                    .tag(tag)
+                    .build(),
+            )
+            .expiration(LifecycleExpiration::builder().days(3).build())
+            .build()?;
+
+        // 创建生命周期配置
+        let lifecycle_config = BucketLifecycleConfiguration::builder()
+            .rules(rule)
+            .build()?;
+
+        self.client
+            .put_bucket_lifecycle_configuration()
+            .bucket(&self.conf.bucket)
+            .lifecycle_configuration(lifecycle_config)
+            .send()
+            .await?;
+
+        Ok(())
+    }
 }
 
 /// 对象元数据结构
@@ -179,5 +214,3 @@ impl From<&Object> for ObjectMetadata {
         }
     }
 }
-
-
