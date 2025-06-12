@@ -15,7 +15,10 @@ use salvo::{conn::TcpListener, Listener, Server};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = live_end::s3::S3Manager::new().await?;
+    let objects = client.list_all_objects().await?;
+    for obj in objects {
+        client.delete_object(&obj.key).await?;
+    }
 
-    dbg!(client.test_connection().await.is_ok());
     Ok(())
 }
