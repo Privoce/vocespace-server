@@ -16,5 +16,10 @@ pub fn build() -> Router {
             .put(update_license)
             .push(Router::with_path("domains/{value}").get(get_license_by_domain))
             .push(Router::with_path("{value}").get(get_license)),
+    ).push(
+        Router::with_path("rooms")
+            .get(crate::api::rooms::get_rooms)
+            .post(crate::api::rooms::awake_or_create_room)
+            .put(crate::api::rooms::update_room),
     )
 }
