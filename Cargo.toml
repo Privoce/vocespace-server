@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 aws-config = "1.6.3"
-aws-sdk-s3 = "1.91.0"
+aws-sdk-s3 = {version="1.91.0", features = ["behavior-version-latest"]}
 base64 = "0.22.1"
 chrono = "0.4.41"
 lettre = "0.11.16"
