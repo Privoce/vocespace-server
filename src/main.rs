@@ -1,4 +1,4 @@
-use live_end::{db, router};
+use live_end::{db, router, s3};
 use salvo::{conn::TcpListener, Listener, Server};
 
 #[tokio::main]
@@ -7,18 +7,19 @@ async fn main() {
 
     // init database
     let cn = db::init().await;
-    let router = router::build().hoop(salvo::affix_state::inject(cn));
+    let s3 = s3::S3Manager::new().await;
+
+    let mut router = router::build().hoop(salvo::affix_state::inject(cn));
+
+    match s3 {
+        Ok(s3) => {
+            router = router.hoop(salvo::affix_state::inject(s3));
+        },
+        Err(e) => {
+            eprintln!("S3 Failed: {}", e);
+        }
+    }
+
     let acceptor = TcpListener::new("127.0.0.1:3060").bind().await;
     Server::new(acceptor).serve(router).await;
 }
-
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//     let client = live_end::s3::S3Manager::new().await?;
-//     let objects = client.list_all_objects().await?;
-//     for obj in objects {
-//         client.delete_object(&obj.key).await?;
-//     }
-
-//     Ok(())
-// }

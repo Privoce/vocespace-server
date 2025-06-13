@@ -11,14 +11,18 @@ pub type ApiResult<T> = Result<T, ApiError>;
 pub struct ApiError {
     pub code: u16,
     pub msg: String,
+    pub success: bool,
 }
 
 impl ApiError {
-    pub fn new<C>(code: C, msg: String) -> Self 
-    where C: Into<u16> {
+    pub fn new<C>(code: C, msg: String) -> Self
+    where
+        C: Into<u16>,
+    {
         Self {
             code: code.into(),
             msg,
+            success: false,
         }
     }
 }
@@ -44,6 +48,7 @@ impl From<(u16, String)> for ApiError {
         Self {
             code: value.0,
             msg: value.1,
+            success: false,
         }
     }
 }
@@ -53,6 +58,7 @@ impl From<(ErrCode, String)> for ApiError {
         Self {
             code: value.0.into(),
             msg: value.1,
+            success: false,
         }
     }
 }
@@ -62,7 +68,9 @@ pub enum ErrCode {
     DatabaseError,
     CreateToken,
     LicenseNotFound,
-    LicenseExpired
+    LicenseExpired,
+    S3EnvUnSet,
+    S3ConnectionFailed,
 }
 
 impl From<ErrCode> for u16 {
@@ -73,6 +81,8 @@ impl From<ErrCode> for u16 {
             ErrCode::CreateToken => 1002,
             ErrCode::LicenseNotFound => 1010,
             ErrCode::LicenseExpired => 1011,
+            ErrCode::S3EnvUnSet => 1020,
+            ErrCode::S3ConnectionFailed => 1021,
         }
     }
 }

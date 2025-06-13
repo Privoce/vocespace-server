@@ -8,9 +8,10 @@ use aws_sdk_s3::{
     },
     Client,
 };
+use serde::Serialize;
 use std::{env::current_exe, error::Error, fs::read_to_string, time::Duration};
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, Clone)]
 pub struct Conf {
     #[serde(rename = "accessKey")]
     pub access_key: String,
@@ -47,6 +48,7 @@ impl From<&Conf> for Credentials {
     }
 }
 
+#[derive(Clone)]
 pub struct S3Manager {
     pub client: Client,
     pub conf: Conf,
@@ -78,11 +80,11 @@ impl S3Manager {
             .bucket(&self.conf.bucket)
             .send()
             .await?;
-        println!("Successfully connected to bucket: {}", self.conf.bucket);
+
         Ok(())
     }
 
-    pub async fn list_all_objects(&self) -> Result<Vec<ObjectMetadata>, aws_sdk_s3::Error> {
+    pub async fn list_all_objects(&self, prefix: Option<String>) -> Result<Vec<ObjectMetadata>, aws_sdk_s3::Error> {
         let mut objects = Vec::new();
         let mut continuation_token: Option<String> = None;
 
@@ -97,7 +99,17 @@ impl S3Manager {
 
             for object in response.contents() {
                 if object.key().is_some() {
-                    objects.push(object.into());
+                    let mut push = true;
+                    // 如果有前缀，则检查对象的键是否以该前缀开头
+                    if let Some(prefix) = prefix.as_ref() {
+                        if !object.key().unwrap().starts_with(prefix) {
+                            push = false;
+                        }
+                    }
+
+                    if push {
+                        objects.push(object.into());
+                    }
                 }
             }
 
@@ -168,16 +180,15 @@ impl S3Manager {
     /// 设置对象的删除策略，每个对象只存储3天，超过3天自动删除
     /// 需要筛选tag为`vocespace_record=true`的对象
     pub async fn set_delete_policy(&self) -> Result<(), aws_sdk_s3::Error> {
-        let tag = Tag::builder().key("vocespace_record").value("true").build()?;
+        let tag = Tag::builder()
+            .key("vocespace_record")
+            .value("true")
+            .build()?;
 
         let rule = LifecycleRule::builder()
             .id("auto-delete_3_days")
             .status(aws_sdk_s3::types::ExpirationStatus::Enabled)
-            .filter(
-                LifecycleRuleFilter::builder()
-                    .tag(tag)
-                    .build(),
-            )
+            .filter(LifecycleRuleFilter::builder().tag(tag).build())
             .expiration(LifecycleExpiration::builder().days(3).build())
             .build()?;
 
@@ -186,19 +197,35 @@ impl S3Manager {
             .rules(rule)
             .build()?;
 
-        self.client
+        if let Some(exist_lifecycle_conf) = self
+            .client
             .put_bucket_lifecycle_configuration()
             .bucket(&self.conf.bucket)
-            .lifecycle_configuration(lifecycle_config)
-            .send()
-            .await?;
+            .get_lifecycle_configuration()
+        {
+            // 如果已经存在了当前的删除策略，则不需要重复设置
+            if exist_lifecycle_conf
+                .rules()
+                .iter()
+                .any(|r| r.id() == Some("auto-delete_3_days"))
+            {
+                return Ok(());
+            } else {
+                self.client
+                    .put_bucket_lifecycle_configuration()
+                    .bucket(&self.conf.bucket)
+                    .lifecycle_configuration(lifecycle_config)
+                    .send()
+                    .await?;
+            }
+        }
 
         Ok(())
     }
 }
 
 /// 对象元数据结构
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ObjectMetadata {
     pub key: String,
     pub size: i64,
