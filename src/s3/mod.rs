@@ -148,6 +148,7 @@ impl S3Manager {
             .get_object()
             .bucket(&self.conf.bucket)
             .key(key)
+            .response_content_disposition("attachment") // 强制下载
             .presigned(presigning_config)
             .await?;
 
