@@ -2411,6 +2411,7 @@ dependencies = [
  "aws-sdk-s3",
  "base64 0.22.1",
  "chrono",
+ "jsonwebtoken",
  "lettre",
  "rand 0.9.1",
  "salvo",

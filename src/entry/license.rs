@@ -1,10 +1,81 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::Utc;
-use rand::{rng, RngCore};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use sea_orm::{prelude::StringLen, *};
-use sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
+
+const LICENSE_SECRET: &str = "privoce_vocespace_secret_key";
+
+/// JWT Claims for license
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LicenseClaims {
+    /// Subject (email)
+    pub email: String,
+    /// Expiration time (Unix timestamp)
+    pub expires_at: i64,
+    /// Created at (Unix timestamp)
+    pub created_at: i64,
+    /// License domains
+    pub domains: String,
+    /// License limit/tier
+    pub limit: String,
+    /// License ID
+    pub id: String,
+}
+
+impl LicenseClaims {
+    pub fn new(
+        email: String,
+        expires_at: i64,
+        created_at: i64,
+        domains: String,
+        limit: String,
+        id: String,
+    ) -> Self {
+        Self {
+            email,
+            expires_at,
+            created_at,
+            domains,
+            limit,
+            id,
+        }
+    }
+    pub fn create_license(self) -> String {
+        let secret = LICENSE_SECRET.to_string();
+        let encoding_key = EncodingKey::from_secret(secret.as_bytes());
+        let header = Header::new(Algorithm::HS256);
+
+        encode(&header, &self, &encoding_key).unwrap_or_else(|err| {
+            eprintln!("Failed to generate JWT license: {}", err);
+            format!("vocespace_fallback_{}", self.email)
+        })
+    }
+
+    pub fn validate(&self) -> bool {
+        let now = Utc::now().timestamp();
+        self.expires_at > now && self.created_at <= now
+    }
+}
+
+
+impl FromStr for LicenseClaims {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let secret = LICENSE_SECRET.to_string();
+
+        let decoding_key = DecodingKey::from_secret(secret.as_bytes());
+        let validation = Validation::new(Algorithm::HS256);
+
+        match decode::<LicenseClaims>(s, &decoding_key, &validation) {
+            Ok(token_data) => Ok(token_data.claims),
+            Err(err) => Err(format!("Failed to parse license: {}", err)),
+        }
+    }
+}
+
 /// # Table for license
 /// | key        | type        |
 /// | ---------- | ----------- |
@@ -41,7 +112,15 @@ impl Model {
     pub fn new(email: String, domains: String, created_at: i64) -> Self {
         let expires_at = created_at + 60 * 60 * 24 * 365; // 1 year
         let id = uuid::Uuid::new_v4().to_string();
-        let value = Self::generate_license_value(&email, &domains, created_at);
+        let ilimit = Limit::Professional;
+        let value = Self::generate_license_value(
+            &id,
+            &email,
+            &domains,
+            created_at,
+            expires_at,
+            ilimit.to_string(),
+        );
         Self {
             id,
             email,
@@ -49,7 +128,7 @@ impl Model {
             created_at,
             expires_at,
             value,
-            ilimit: Limit::Professional,
+            ilimit,
         }
     }
     pub fn domains(&self) -> Vec<String> {
@@ -76,25 +155,37 @@ impl Model {
         Statement::from_string(DbBackend::Sqlite, sql.to_string())
     }
 
-    pub fn generate_license_value(email: &str, domains: &str, timestamp: i64) -> String {
-        // 创建一个包含用户信息和随机数据的混合字节数组
-        let mut rng = rng();
-        let mut random_bytes = [0u8; 32];
-        rng.fill_bytes(&mut random_bytes);
+    pub fn generate_license_value(
+        id: &str,
+        email: &str,
+        domains: &str,
+        timestamp: i64,
+        expires_at: i64,
+        limit: String,
+    ) -> String {
+        let claims = LicenseClaims {
+            email: email.to_string(),
+            expires_at,
+            created_at: timestamp,
+            domains: domains.to_string(),
+            limit,
+            id: id.to_string(),
+        };
+        claims.create_license()
+    }
 
-        // 创建一个哈希器，混合用户数据和随机数据
-        let mut hasher = Sha256::new();
-        hasher.update(email.as_bytes());
-        hasher.update(&timestamp.to_be_bytes());
-        hasher.update(domains.as_bytes());
-        hasher.update(&random_bytes);
+        /// 解析 JWT license 获取 Claims
+    pub fn parse_license_claims(license_value: &str) -> Result<LicenseClaims, String> {
+        LicenseClaims::from_str(license_value)
+    }
 
-        let result = hasher.finalize();
+    /// 验证 license 是否有效（包括过期检查和签名验证）
+    pub fn validate_license(license_value: &str) -> Result<LicenseClaims, String> {
+        let claims = Self::parse_license_claims(license_value)?;
 
-        // 编码为base64并添加前缀
-        let prefix = "vocespace_pro_";
+        claims.validate().then(|| ()).ok_or("License is invalid or expired".to_string())?;
 
-        format!("{}_{}", prefix, URL_SAFE_NO_PAD.encode(result))
+       Ok(claims)
     }
 
     pub fn to_active_model(self) -> ActiveModel {
@@ -147,5 +238,32 @@ impl serde::Serialize for Limit {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(test)]
+mod test_license {
+    use super::*;
+
+    #[test]
+    fn test_license_generation_and_validation() {
+        let email = "test@example.com";
+        let domains = "example.com,example.org";
+        let created_at = Utc::now().timestamp();
+        let expires_at = created_at + 60 * 60 * 24 * 365;
+        let limit = Limit::Professional.to_string();
+        let id = uuid::Uuid::new_v4().to_string();
+
+        // 生成 license
+        let license = LicenseClaims::new(
+            email.to_string(),
+            expires_at,
+            created_at,
+            domains.to_string(),
+            limit,
+            id,
+        );
+        let license_value = license.create_license();
+        dbg!("Generated License Value: {}", license_value);
     }
 }

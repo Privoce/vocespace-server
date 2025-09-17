@@ -3,3 +3,5 @@
 vocespace.db
 vocespace.html
 aws.json
+.Ds_Store
+/parser/*
